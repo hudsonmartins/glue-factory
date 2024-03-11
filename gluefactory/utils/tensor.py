@@ -7,7 +7,7 @@ import collections.abc as collections
 import numpy as np
 import torch
 
-string_classes = (str, bytes)
+string_classes = (str, bytes, int)
 
 
 def map_tensor(input_, func):
