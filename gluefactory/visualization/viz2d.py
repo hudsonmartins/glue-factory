@@ -177,7 +177,6 @@ def plot_matches(kpts0, kpts1, color=None, lw=1.5, ps=4, a=1.0, labels=None, axe
         color = sns.color_palette("husl", n_colors=len(kpts0))
     elif len(color) > 0 and not isinstance(color[0], (tuple, list)):
         color = [color] * len(kpts0)
-
     if lw > 0:
         for i in range(len(kpts0)):
             line = matplotlib.patches.ConnectionPatch(

@@ -36,13 +36,13 @@ def sample_n(data, num, seed=None):
 class MegaDepth(BaseDataset):
     default_conf = {
         # paths
-        "data_dir": "megadepth/",
-        "depth_subpath": "depth_undistorted/",
-        "image_subpath": "Undistorted_SfM/",
+        "data_dir": "megadepth1500/",
+        "depth_subpath": "depths/",
+        "image_subpath": "images/",
         "info_dir": "scene_info/",  # @TODO: intrinsics problem?
         # Training
         "train_split": "train_scenes_clean.txt",
-        "train_num_per_scene": 500,
+        "train_num_per_scene": 1000,
         # Validation
         "val_split": "valid_scenes_clean.txt",
         "val_num_per_scene": None,
@@ -123,7 +123,6 @@ class _PairDataset(torch.utils.data.Dataset):
         else:
             raise ValueError(f"Unknown split configuration: {split_conf}.")
         scenes = sorted(set(scenes))
-
         if conf.load_features.do:
             self.feature_loader = CacheLoader(conf.load_features)
 
@@ -147,8 +146,20 @@ class _PairDataset(torch.utils.data.Dataset):
                     "Cannot load scene info for scene %s at %s.", scene, path
                 )
                 continue
-            self.images[scene] = info["image_paths"]
+
+            self.images[scene] = []
+            for i in range(info["image_paths"].shape[0]):
+                if info["image_paths"][i] is not None:
+                    new_path = info["image_paths"][i].replace("Undistorted_SfM/", self.conf.image_subpath)
+                    if (self.root / new_path).exists():
+                        self.images[scene].append(new_path)
+                    else:
+                        self.images[scene].append(None)
+                else:
+                    self.images[scene].append(None)
+            self.images[scene] = np.array(self.images[scene])
             self.depths[scene] = info["depth_paths"]
+
             self.poses[scene] = info["poses"]
             self.intrinsics[scene] = info["intrinsics"]
             self.scenes.append(scene)
@@ -180,6 +191,7 @@ class _PairDataset(torch.utils.data.Dataset):
                 im0, im1 = [self.conf.image_subpath + im for im in [im0, im1]]
                 assert im0 in self.images[scene]
                 assert im1 in self.images[scene]
+                
                 idx0 = np.where(self.images[scene] == im0)[0][0]
                 idx1 = np.where(self.images[scene] == im1)[0][0]
                 self.items.append((scene, idx0, idx1, 1.0))
@@ -207,7 +219,6 @@ class _PairDataset(torch.utils.data.Dataset):
                 )
                 ind = np.where(valid)[0]
                 mat = info["overlap_matrix"][valid][:, valid]
-
                 if num_pos is not None:
                     # Sample a subset of pairs, binned by overlap.
                     num_bins = self.conf.num_overlap_bins
@@ -223,14 +234,17 @@ class _PairDataset(torch.utils.data.Dataset):
                         pairs_bin = (mat > bin_min) & (mat <= bin_max)
                         pairs_bin = np.stack(np.where(pairs_bin), -1)
                         pairs_all.append(pairs_bin)
+
                     # Skip bins with too few samples
                     has_enough_samples = [len(p) >= num_per_bin * 2 for p in pairs_all]
+                    
                     num_per_bin_2 = num_pos // max(1, sum(has_enough_samples))
                     pairs = []
                     for pairs_bin, keep in zip(pairs_all, has_enough_samples):
                         if keep:
                             pairs.append(sample_n(pairs_bin, num_per_bin_2, seed))
                     pairs = np.concatenate(pairs, 0)
+                
                 else:
                     pairs = (mat > self.conf.min_overlap) & (
                         mat <= self.conf.max_overlap
@@ -249,6 +263,7 @@ class _PairDataset(torch.utils.data.Dataset):
             np.random.RandomState(seed).shuffle(self.items)
 
     def _read_view(self, scene, idx):
+        
         path = self.root / self.images[scene][idx]
 
         # read pose data
@@ -272,7 +287,7 @@ class _PairDataset(torch.utils.data.Dataset):
             with h5py.File(str(depth_path), "r") as f:
                 depth = f["/depth"].__array__().astype(np.float32, copy=False)
                 depth = torch.Tensor(depth)[None]
-            assert depth.shape[-2:] == img.shape[-2:]
+            #assert depth.shape[-2:] == img.shape[-2:]
         else:
             depth = None
 

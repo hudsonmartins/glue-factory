@@ -509,7 +509,6 @@ class LightGlue(nn.Module):
         else:
             prune0 = torch.ones_like(mscores0) * self.conf.n_layers
             prune1 = torch.ones_like(mscores1) * self.conf.n_layers
-
         pred = {
             "matches0": m0,
             "matches1": m1,
@@ -565,7 +564,6 @@ class LightGlue(nn.Module):
             return {
                 "log_assignment": la,
             }
-
         sum_weights = 1.0
         nll, gt_weights, loss_metrics = self.loss_fn(loss_params(pred, -1), data)
         N = pred["ref_descriptors0"].shape[1]
