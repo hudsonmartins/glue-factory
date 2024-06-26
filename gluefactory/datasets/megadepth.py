@@ -237,12 +237,13 @@ class _PairDataset(torch.utils.data.Dataset):
                     )
                     pairs = np.stack(np.where(pairs), -1)
 
-                pairs = [(scene, ind[i], ind[j], mat[i, j]) for i, j in pairs]
-                if num_neg is not None:
-                    neg_pairs = np.stack(np.where(mat <= 0.0), -1)
-                    neg_pairs = sample_n(neg_pairs, num_neg, seed)
-                    pairs += [(scene, ind[i], ind[j], mat[i, j]) for i, j in neg_pairs]
-                self.items.extend(pairs)
+                pairs_list = [(scene, ind[i], ind[j], mat[i, j]) for i, j in pairs]
+                pairs_list += [(scene, ind[j], ind[i], mat[i, j]) for i, j in pairs]
+                # if num_neg is not None:
+                #     neg_pairs = np.stack(np.where(mat <= 0.0), -1)
+                #     neg_pairs = sample_n(neg_pairs, num_neg, seed)
+                #     pairs += [(scene, ind[i], ind[j], mat[i, j]) for i, j in neg_pairs]
+                self.items.extend(pairs_list)
         if self.conf.views == 2 and self.conf.sort_by_overlap:
             self.items.sort(key=lambda i: i[-1], reverse=True)
         else:
